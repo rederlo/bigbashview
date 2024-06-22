@@ -88,6 +88,7 @@ class content_handler(url_handler):
             with open(content) as arq:
                 html_content = arq.read()
                 html_content = self.process_includes(html_content)
+                html_content = self.process_tags(html_content)
                 return html_content
         except UnicodeDecodeError:
             with open(content, 'rb') as arq:
@@ -117,6 +118,27 @@ class content_handler(url_handler):
                 html_content = self.include_node(html_content, include_content, match.group(0))
 
         return html_content
+
+    def process_tags(self, html_content):
+        pattern = r'<x-([a-zA-Z0-9_-]+) class="(.*?)">(.*?)<\/x-\1>'
+        matches = list(re.finditer(pattern, html_content, re.DOTALL))
+
+        for match in matches:
+            include_type, class_name, tag_content = match.groups()
+            include_type = include_type.strip()
+            class_name = class_name.strip()
+            tag_content = tag_content.strip()
+
+            tag_content = self.process_tags(tag_content)
+
+            html_content = self.include_tags(html_content, include_type, class_name, tag_content, match.group(0))
+
+        return html_content
+
+    # Include semantic tags
+    def include_tags(self, html_content, include_type, class_name, include_content, original_tag):
+        replacement_content = f'<div class="{class_name}" data-type="{include_type}">{include_content}</div>'
+        return html_content.replace(original_tag, replacement_content)
 
     # Include an HTML file
     def include_html(self, html_content, file_path, original_string):
